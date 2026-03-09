@@ -7,10 +7,10 @@ import { Logo } from "@/components/ui/Logo";
 const NAV_ITEMS = [
   { href: "/dashboard", icon: "\u{1F4CA}", label: "Dashboard" },
   { href: "/lessons", icon: "\u{1F4DA}", label: "Lessons" },
-  { href: "#", icon: "\u{1F40D}", label: "Code Lab" },
-  { href: "#", icon: "\u{1F916}", label: "AI Tutor" },
-  { href: "#", icon: "\u{1F3C6}", label: "Achievements" },
-  { href: "#", icon: "\u2699\uFE0F", label: "Settings" },
+  { href: "/code-lab", icon: "\u{1F40D}", label: "Code Lab" },
+  { href: "/tutor", icon: "\u{1F916}", label: "AI Tutor" },
+  { href: "/achievements", icon: "\u{1F3C6}", label: "Achievements" },
+  { href: "/settings", icon: "\u2699\uFE0F", label: "Settings" },
 ];
 
 interface SidebarProps {
