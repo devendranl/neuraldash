@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow_file_write": true,
+    "allow_file_delete": false,
+    "allow_command_execution": true,
+    "allow_network_requests": true,
+    "allowed_commands": [
+      "npm", "npx", "node", "git", "pnpm",
+      "vitest", "playwright", "prisma", "next", "tsc"
+    ],
+    "blocked_commands": [
+      "rm -rf /", "sudo", "chmod 777", "curl", "wget"
+    ],
+    "allowed_directories": [
+      "./src", "./docs", "./tests", "./.claude", "./public",
+      "./prisma", "./app"
+    ],
+    "blocked_directories": [
+      "./node_modules", "./.git", "./secrets"
+    ]
+  },
+  "autonomy": {
+    "mode": "high",
+    "auto_approve_tests": true,
+    "auto_approve_refactoring": true,
+    "auto_fix_lint_errors": true,
+    "pause_on_errors": false,
+    "max_iterations_without_progress": 5
+  },
+  "context": {
+    "always_read": [
+      "CLAUDE.md",
+      "docs/PRD.md",
+      "docs/ARCHITECTURE.md"
+    ],
+    "memory_files": [
+      ".claude/memory/decisions.md",
+      ".claude/memory/session-log.md"
+    ]
+  }
+}

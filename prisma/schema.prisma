@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── NextAuth.js required models ────────────────────────────────────
+
+enum Role {
+  LEARNER
+  PARENT
+}
+
+enum AgeBracket {
+  UNDER_13
+  AGE_13_15
+  AGE_16_18
+}
+
+model User {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  email          String    @unique
+  emailVerified  DateTime?
+  hashedPassword String?
+  image          String?
+  role           Role      @default(LEARNER)
+  ageBracket     AgeBracket?
+  parentEmail    String?
+  consentVerified Boolean  @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  learnerProfile LearnerProfile?
+  parentLinks    ParentChild[]   @relation("ParentUser")
+  childLinks     ParentChild[]   @relation("ChildUser")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Domain models ──────────────────────────────────────────────────
+
+model ParentChild {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  createdAt DateTime @default(now())
+
+  parent User @relation("ParentUser", fields: [parentId], references: [id], onDelete: Cascade)
+  child  User @relation("ChildUser", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@map("parent_children")
+}
+
+model LearnerProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  currentLevel         Int      @default(1)
+  totalXP              Int      @default(0)
+  currentStreak        Int      @default(0)
+  longestStreak        Int      @default(0)
+  lastActiveDate       DateTime?
+  streakShieldAvailable Boolean @default(false)
+  maturityScores       Json     @default("{\"awareness\":0,\"mlConcepts\":0,\"python\":0,\"deployment\":0}")
+  placementLevel       Int?
+  onboardingCompleted  Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress      Progress[]
+  assessments   Assessment[]
+  conversations TutorConversation[]
+  badges        Badge[]
+
+  @@map("learner_profiles")
+}
+
+enum ModuleType {
+  VIDEO
+  READING
+  CODING
+  QUIZ
+}
+
+model Module {
+  id               String     @id @default(cuid())
+  level            Int
+  order            Int
+  title            String
+  description      String     @default("")
+  theme            String     @default("")
+  type             ModuleType
+  content          Json       @default("{}")
+  externalUrl      String?
+  estimatedMinutes Int        @default(15)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  progress      Progress[]
+  conversations TutorConversation[]
+
+  @@unique([level, order])
+  @@map("modules")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Progress {
+  id               String         @id @default(cuid())
+  learnerId        String
+  moduleId         String
+  status           ProgressStatus @default(NOT_STARTED)
+  score            Float?
+  xpEarned         Int            @default(0)
+  completedAt      DateTime?
+  timeSpentSeconds Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  learner LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  module  Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, moduleId])
+  @@map("progress")
+}
+
+enum AssessmentType {
+  PLACEMENT
+  LEVEL_UP
+}
+
+model Assessment {
+  id            String         @id @default(cuid())
+  learnerId     String
+  level         Int
+  type          AssessmentType
+  questions     Json           @default("[]")
+  answers       Json           @default("[]")
+  score         Float?
+  passed        Boolean?
+  attemptNumber Int            @default(1)
+  startedAt     DateTime       @default(now())
+  completedAt   DateTime?
+
+  learner LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@map("assessments")
+}
+
+model TutorConversation {
+  id          String   @id @default(cuid())
+  learnerId   String
+  moduleId    String?
+  messages    Json     @default("[]")
+  safetyFlags Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  learner LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  module  Module?        @relation(fields: [moduleId], references: [id])
+
+  @@map("tutor_conversations")
+}
+
+enum BadgeType {
+  FIRST_LOGIN
+  LEVEL_CLEARED
+  STREAK_MASTER
+  QUIZ_ACE
+  CODE_WARRIOR
+  SPEED_LEARNER
+  HELPING_HAND
+  CUSTOM
+}
+
+model Badge {
+  id          String    @id @default(cuid())
+  learnerId   String
+  type        BadgeType
+  name        String
+  description String    @default("")
+  awardedAt   DateTime  @default(now())
+
+  learner LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, type, name])
+  @@map("badges")
+}
