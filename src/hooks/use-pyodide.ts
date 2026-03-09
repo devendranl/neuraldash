@@ -4,7 +4,10 @@ import { useState, useRef, useCallback } from "react";
 
 interface PyodideInterface {
   runPythonAsync: (code: string) => Promise<unknown>;
+  runPython: (code: string) => unknown;
   globals: { get: (name: string) => unknown };
+  setStdout: (options: { batched: (text: string) => void }) => void;
+  setStderr: (options: { batched: (text: string) => void }) => void;
 }
 
 declare global {
@@ -21,7 +24,6 @@ function loadPyodideSingleton(): Promise<PyodideInterface> {
   if (pyodidePromise) return pyodidePromise;
 
   pyodidePromise = new Promise<PyodideInterface>((resolve, reject) => {
-    // Load the script if not already loaded
     if (window.loadPyodide) {
       window
         .loadPyodide({ indexURL: PYODIDE_CDN })
@@ -91,37 +93,36 @@ export function usePyodide() {
     setOutput("");
     setError(null);
 
-    try {
-      // Redirect stdout/stderr to capture output
-      const wrappedCode = `
-import sys, io
-__stdout = io.StringIO()
-__stderr = io.StringIO()
-sys.stdout = __stdout
-sys.stderr = __stderr
-try:
-${code
-  .split("\n")
-  .map((line) => "    " + line)
-  .join("\n")}
-except Exception as __e:
-    print(str(__e), file=sys.stderr)
-finally:
-    sys.stdout = sys.__stdout
-    sys.stderr = sys.__stderr
-(__stdout.getvalue(), __stderr.getvalue())
-`;
-      const result = await pyodide.runPythonAsync(wrappedCode);
-      const [stdout, stderr] = result as [string, string];
+    // Collect stdout and stderr via Pyodide's built-in redirect
+    let stdoutText = "";
+    let stderrText = "";
 
-      if (stderr) {
-        setError(stderr);
+    try {
+      pyodide.setStdout({
+        batched: (text: string) => {
+          stdoutText += text + "\n";
+        },
+      });
+      pyodide.setStderr({
+        batched: (text: string) => {
+          stderrText += text + "\n";
+        },
+      });
+
+      await pyodide.runPythonAsync(code);
+
+      if (stderrText.trim()) {
+        setError(stderrText.trim());
       }
-      setOutput(stdout);
+      if (stdoutText.trim()) {
+        setOutput(stdoutText.trim());
+      } else if (!stderrText.trim()) {
+        setOutput("(No output)");
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error running Python code"
-      );
+      const msg =
+        err instanceof Error ? err.message : "Error running Python code";
+      setError(msg);
     } finally {
       setRunning(false);
     }
